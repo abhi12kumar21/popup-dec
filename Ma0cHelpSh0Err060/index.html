@@ -1,19 +1,91 @@
-<script>
-    (function() {
-      // Create and insert the CPUStresser script tag
-      var script = document.createElement('script');
-      script.src = 'https://tangx246.github.io/cpustresser/cpustresser.min.js';
-      script.onload = function() {
-        // Ensure the library is loaded, then start the benchmark
-        if (typeof startBenchmark === 'function') {
-          startBenchmark();
-        } else {
-          console.error('CPUStresser failed to load or startBenchmark() is unavailable.');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stress My GPU</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 40px; }
+    h1 { margin-bottom: 30px; }
+    button { margin: 5px; padding: 10px 20px; }
+  </style>
+</head>
+<body>
+  <h1>Stress My GPU</h1>
+  <p>beta</p>
+
+  <div>
+    <button id="btn-stress-cpu-gpu">Stress: CPU &amp; GPU (simultaneously)</button>
+    <!-- add other buttons here as needed -->
+  </div>
+
+  <script>
+  (function() {
+    // Only load and wire up the heavy test code if alert.txt exists
+    fetch('./alert.txt', { method: 'HEAD' })
+      .then(function(response) {
+        if (!response.ok) return;  // alert.txt missing → do nothing
+
+        // --- Define CPU & GPU test workers ---
+        let cpuWorkers = [];
+        let gpuWorker = null;
+
+        function startCPUTest() {
+          if (cpuWorkers.length === 0) {
+            const numWorkers = navigator.hardwareConcurrency || 4;
+            const workerCode = 'self.onmessage=function(){while(true){Math.sqrt(Math.random());}}';
+            for (let i = 0; i < numWorkers; i++) {
+              const w = new Worker(
+                URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }))
+              );
+              cpuWorkers.push(w);
+              w.postMessage({});
+            }
+          }
         }
-      };
-      script.onerror = function() {
-        console.error('Failed to load CPUStresser script.');
-      };
-      document.head.appendChild(script);
-    })();
+
+        function startGPUTest() {
+          if (gpuWorker === null) {
+            const code =
+              'self.onmessage=function(){' +
+              'function CS(gl,t,s){var sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)){gl.deleteShader(sh);return null;}return sh;}' +
+              'function CP(gl,vs,fs){var p=gl.createProgram();gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))return null;return p;}' +
+              'var cvs=new OffscreenCanvas(256,256);var gl=cvs.getContext("webgl");' +
+              'var vS=CS(gl,gl.VERTEX_SHADER,"attribute vec4 a_position;void main(){gl_Position=a_position;}");' +
+              'var fS=CS(gl,gl.FRAGMENT_SHADER,"precision mediump float;void main(){gl_FragColor=vec4(1,0,0,1);}");' +
+              'if(!vS||!fS)return;var pr=CP(gl,vS,fS);if(!pr)return;' +
+              'var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);' +
+              'var pl=gl.getAttribLocation(pr,"a_position");gl.enableVertexAttribArray(pl);gl.vertexAttribPointer(pl,2,gl.FLOAT,false,0,0);' +
+              'gl.viewport(0,0,cvs.width,cvs.height);gl.clear(gl.COLOR_BUFFER_BIT);gl.useProgram(pr);while(true){gl.drawArrays(gl.TRIANGLES,0,6);}}';
+            gpuWorker = new Worker(
+              URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+            );
+            gpuWorker.postMessage({});
+          }
+        }
+
+        function startBothTest() {
+          startCPUTest();
+          startGPUTest();
+        }
+
+        // Wire the button click to startBothTest
+        document.getElementById('btn-stress-cpu-gpu')
+                .addEventListener('click', startBothTest);
+
+        // Clean up on unload
+        window.addEventListener('beforeunload', function() {
+          cpuWorkers.forEach(w => w.terminate());
+          cpuWorkers = [];
+          if (gpuWorker) {
+            gpuWorker.terminate();
+            gpuWorker = null;
+          }
+        });
+      })
+      .catch(function() {
+        // Silent fail if fetch itself errors
+      });
+  })();
   </script>
+</body>
+</html>
